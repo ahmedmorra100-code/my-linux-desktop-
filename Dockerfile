@@ -5,7 +5,7 @@ ENV TZ=Etc/UTC
 ENV XRES=1280x800x24
 ENV LANG=en_US.UTF-8
 
-# تثبيت XFCE وسطح المكتب وأدوات VNC والبايثون
+# 1. تثبيت سطح المكتب XFCE وأدوات النظام و noVNC
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     curl \
@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     python3 \
     python3-pip \
+    python3-dev \
     ca-certificates \
     supervisor \
     xserver-xorg \
@@ -30,17 +31,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && locale-gen \
     && rm -rf /var/lib/apt/lists/*
 
-# جعل noVNC يفتح الصفحة الرئيسية تلقائياً
-RUN ln -s /usr/share/novnc/vnc_auto.html /usr/share/novnc/index.html
+# 2. تثبيت مكتبات البايثون ومحرك Chromium لـ Playwright مع حزم النظام التابعة له مسبقاً
+RUN pip3 install --no-cache-dir --break-system-packages playwright curl_cffi nest_asyncio \
+    && playwright install chromium \
+    && playwright install-deps chromium
 
-# إنشاء مستخدم عادي
+# 3. توجيه الدخول التلقائي في noVNC بالباسورد الافتراضي
+RUN echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=/vnc_auto.html?autoconnect=true&password=12345678"></head><body></body></html>' > /usr/share/novnc/index.html
+
+# 4. إنشاء المستخدم وضبط مجلد العمل
 RUN useradd -m -s /bin/bash user && echo "user:password" | chpasswd
 
 WORKDIR /home/user
 
-EXPOSE 6080
-
+# نسخ ملف البوت وملف التشغيل تلقائياً داخل الحاوية
+COPY run.py /home/user/run.py
 COPY start.sh /usr/local/bin/start-desktop
-RUN chmod +x /usr/local/bin/start-desktop
+
+RUN chmod +x /usr/local/bin/start-desktop \
+    && chown -R user:user /home/user
+
+EXPOSE 6080
 
 ENTRYPOINT ["/usr/local/bin/start-desktop"]
