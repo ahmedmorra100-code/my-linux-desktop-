@@ -1,27 +1,57 @@
-FROM debian:bookworm-slim
+FROM debian:bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV DISPLAY=:0
-ENV RESOLUTION=1280x800x24
+ENV TZ=Etc/UTC
+ENV XRES=1280x800x24
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
-# تثبيت الأدوات وكافة مكتبات Chromium الـ 15 بحساب Root المباشر
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash sudo curl wget git python3 python3-pip ca-certificates \
-    xserver-xorg xvfb x11vnc novnc net-tools dbus-x11 xfce4 xfce4-terminal \
-    libnspr4 libnss3 libgbm1 libatk1.0-0 libatk-bridge2.0-0 libatspi0 libcups2 \
-    libdrm2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libpango-1.0-0 \
-    libasound2 libx11-xcb1 libdbus-1-3 libxkbcommon0 libxcb-dri3-0 \
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+        xfce4 \
+        xfce4-terminal \
+        xfce4-goodies \
+        xserver-xorg \
+        xvfb \
+        x11vnc \
+        novnc \
+        dbus-x11 \
+        dbus \
+        python3 \
+        python3-pip \
+        python3-venv \
+        python3-dev \
+        build-essential \
+        git \
+        curl \
+        wget \
+        unzip \
+        zip \
+        nano \
+        vim \
+        htop \
+        procps \
+        net-tools \
+        ca-certificates \
+        locales \
+        sudo \
+        tmux \
+        screen \
+    && echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
+    && locale-gen en_US.UTF-8 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# تثبيت Playwright والمتصفح داخل صورة السيرفر
-RUN pip3 install --no-cache-dir --break-system-packages playwright asyncio
-RUN python3 -m playwright install chromium
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
 
-WORKDIR /root
+RUN ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+COPY start.sh /usr/local/bin/start.sh
+
+RUN chmod +x /usr/local/bin/start.sh
 
 EXPOSE 6080
 
-CMD ["/start.sh"]
+ENTRYPOINT ["/usr/local/bin/start.sh"]
