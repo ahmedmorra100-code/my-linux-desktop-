@@ -1,11 +1,10 @@
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
-ENV XRES=1280x800x24
-ENV LANG=en_US.UTF-8
+ENV DISPLAY=:0
+ENV RESOLUTION=1280x800x24
 
-# 1. تثبيت سطح المكتب XFCE وأدوات النظام والبايثون
+# 1. تثبيت واجهة XFCE4 والتطبيقات وكافة مكتبات Chromium الـ 15 المفقودة
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     sudo \
@@ -14,37 +13,52 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     python3 \
     python3-pip \
-    python3-dev \
     ca-certificates \
-    supervisor \
     xserver-xorg \
     xvfb \
     x11vnc \
+    novnc \
+    net-tools \
     dbus-x11 \
     xfce4 \
     xfce4-terminal \
-    novnc \
-    net-tools \
-    tmux \
-    nano \
-    locales \
-    && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
-    && locale-gen \
+    libnspr4 \
+    libnss3 \
+    libgbm1 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libatspi0 \
+    libcups2 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libpango-1.0-0 \
+    libasound2 \
+    libx11-xcb1 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcb-dri3-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. تثبيت مكتبات البايثون ومتصفح Chromium مع تعريفاته تلقائياً أثناء البناء
-RUN pip3 install --no-cache-dir --break-system-packages playwright curl_cffi nest_asyncio \
-    && playwright install chromium \
-    && playwright install-deps chromium
+# 2. إنشاء المستخدم وإعطائه صلاحيات Sudo كاملة وبدون كلمة سر (Full Root Privilege)
+RUN useradd -m -s /bin/bash user && \
+    echo "user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# 3. توجيه الدخول التلقائي في noVNC
-RUN echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=/vnc_auto.html?autoconnect=true&password=12345678"></head><body></body></html>' > /usr/share/novnc/index.html
+# 3. تثبيت Playwright ومتصفح Chromium
+RUN pip3 install --no-cache-dir --break-system-packages playwright asyncio
 
-WORKDIR /root
+USER user
+WORKDIR /home/user
+
+RUN python3 -m playwright install chromium
+
+# 4. نسخ ملف التشغيل وتحديد الأذونات
+COPY --chown=user:user start.sh /home/user/start.sh
+RUN chmod +x /home/user/start.sh
 
 EXPOSE 6080
 
-COPY start.sh /usr/local/bin/start-desktop
-RUN chmod +x /usr/local/bin/start-desktop
+CMD ["/home/user/start.sh"]
 
-ENTRYPOINT ["/usr/local/bin/start-desktop"]
